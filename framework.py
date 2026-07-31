@@ -2,7 +2,7 @@ import json
 import sqlite3
 import process
 import cv2
-
+import yaml
 
 import videosupport.video_player as player
 
@@ -15,7 +15,7 @@ def from_config(config,value):
 
 
 
-config = json.load(open('config.json'))
+config = yaml.safe_load(open('config.yaml'))
 db = sqlite3.connect(config['db'])
 
 writer = cv2.VideoWriter(config["out"]+"video.avi",cv2.VideoWriter_fourcc(*'XVID'),20,[3072,2048])
@@ -30,8 +30,8 @@ for frame in player.read_from_database(db,config['video'],8,start,end):
     if count % 100 == 0:
         print(count)
     count += 1
-
-    op.process(frame)
+    original = frame.copy()
+    op.process(frame,original=original)
 
 op.finalize()
 writer.release()

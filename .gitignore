@@ -1,1 +1,7 @@
-/img/config.json
+/config.json
+/videosupport/*
+/config/*
+/*.yaml
+/.venv
+/img
+.gitignore
