@@ -129,29 +129,41 @@ class Threshold(Process):
     def process(self,frame,**kwargs):
         return np.where(frame>self.threshold,255,0)
 
+class Blur(Process):
+    def __init__(self, size=None, **kwargs):
+        super().__init__()
+        if type(size) == int:
+            size = (size,size)
+        self.size = size
+    def process(self,frame,**kwargs):
+        if frame.dtype != np.uint8:
+            frame = frame.astype(np.uint8)
+
+        return cv2.blur(frame,self.size)
+
+
 class Circle(Process):
+    def __init__(self, radius,params,distance, **kwargs):
+        self.radius = radius
+        self.params = params
+        self.distance = distance
+
     def process(self,frame,original = None,**kwargs):
-        # Reduce noise
         frame = frame.astype(np.uint8)
-        #gray = cv2.medianBlur(frame, 9)
-        gray = cv2.erode(frame,np.ones((3,3),np.uint8),iterations=1)
-        gray = cv2.dilate(gray,np.ones((3,3),np.uint8),iterations=1)
-        gray = cv2.blur(frame,(7,7))
-        #gray = np.clip(2*gray-16, 0, 255)
         if original is not None:
             output = original.copy()
         else:
-            output = cv2.cvtColor(gray,cv2.COLOR_GRAY2BGR)
+            output = cv2.cvtColor(frame,cv2.COLOR_GRAY2BGR)
         # Detect circles
         circles = cv2.HoughCircles(
-            gray,
+            frame,
             cv2.HOUGH_GRADIENT,
             dp=1,
-            minDist=20,
-            param1=10,
-            param2=10,
-            minRadius=15,
-            maxRadius=30
+            minDist=self.distance,
+            param1=self.params[0],
+            param2=self.params[1],
+            minRadius=self.radius[0],
+            maxRadius=self.radius[1],
         )
 
         # Draw only the first detected circle
@@ -178,4 +190,5 @@ PROCESS = {
     "circle":Circle,
     "threshold":Threshold,
     "video":VideoLogger,
+    "blur":Blur,
 }
