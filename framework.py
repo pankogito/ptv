@@ -20,9 +20,12 @@ db = sqlite3.connect(config['db'])
 
 writer = cv2.VideoWriter(config["out"]+"video.avi",cv2.VideoWriter_fourcc(*'XVID'),20,[3072,2048])
 
-start = "2026-06-03 11:43:45"
-end = "2026-06-03 11:45:00"
+start = "2026-06-03 13:37:45"
+end = "2026-06-03 13:38:00"
 
+
+start = "2026-06-09 09:16:00"
+end = "2026-06-09 09:19:00"
 op = process.PROCESS[from_config(config,"operator")](**config["options"],processes=process.PROCESS)
 
 count = 0
