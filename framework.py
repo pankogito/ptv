@@ -16,20 +16,15 @@ def from_config(config,value):
 
 
 config = yaml.safe_load(open('config.yaml'))
+
+
 db = sqlite3.connect(config['db'])
 
-writer = cv2.VideoWriter(config["out"]+"video.avi",cv2.VideoWriter_fourcc(*'XVID'),20,[3072,2048])
 
-start = "2026-06-03 13:37:45"
-end = "2026-06-03 13:38:00"
-
-
-start = "2026-06-09 09:16:00"
-end = "2026-06-09 09:19:00"
 op = process.PROCESS[from_config(config,"operator")](**config["options"],processes=process.PROCESS)
 
 count = 0
-for frame in player.read_from_database(db,config['video'],8,start,end):
+for frame in player.read_from_database(db,config['video'],8,config["start"],config["end"]):
     if count % 100 == 0:
         print(count)
     count += 1
@@ -37,5 +32,4 @@ for frame in player.read_from_database(db,config['video'],8,start,end):
     op.process(frame,original=original)
 
 op.finalize()
-writer.release()
 cv2.destroyAllWindows()
