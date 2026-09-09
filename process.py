@@ -46,14 +46,26 @@ class PipeLine(Process):
         self.pipeline = list(map(lambda config:self.prepare(config,kwargs["processes"]),kwargs["pipeline"]))
 
     def prepare(self,config,processes):
-        return processes[config["operator"]](**config.get("options",{}))
+        return processes[config["operator"]](**config.get("options",{})),config.get("input"),config.get("return")
 
     def process(self,frame,**kwargs):
-        for process in self.pipeline:
-            frame = process.process(frame,**kwargs)
+        data = {"original":frame}
+        for process,inp,ret in self.pipeline:
+            if inp is not None:
+                inp_dict = {n:data[d_n] for n,d_n in inp.items()}
+                new_frame = process.process(**inp_dict,**kwargs)
+            else:
+                new_frame = process.process(frame,**kwargs)
+
+            if ret is not None:
+                data[ret] = new_frame
+            else:
+                data["frame"]  = new_frame
+                frame = new_frame
+
 
     def finalize(self,**kwargs):
-        for process in self.pipeline:
+        for process,_,_ in self.pipeline:
             process.finalize(**kwargs)
 
 class Logger(Process):
@@ -76,7 +88,15 @@ class VideoLogger(Process):
         if self.writer is None:
             self.writer = cv2.VideoWriter(self.name, cv2.VideoWriter_fourcc(*'XVID'), 20, (frame.shape[1],frame.shape[0]))
 
-        self.writer.write(frame)
+        frame = frame.astype(np.uint8)
+
+        if len(frame.shape) == 2:
+            f= cv2.cvtColor(frame,cv2.COLOR_GRAY2BGR)
+        else:
+            f = frame
+        self.writer.write(f)
+
+        return frame
 
     def finalize(self,**kwargs):
         if self.writer is not None:
@@ -177,6 +197,15 @@ class Circle(Process):
 
         return output
 
+class Light(Process):
+    def process(self,frame,mask=None,**kwargs):
+        l = cv2.cvtColor(frame, cv2.COLOR_BGR2HLS)[:,:,1].astype(np.uint16)
+        print(l.max(),mask.max())
+        if mask is not None:
+            return (l*mask//256).astype(np.uint8)
+        else:
+            return l.astype(np.uint8)
+
 PROCESS = {
     "none":Process,
     "avg":AvgProcess,
@@ -191,4 +220,5 @@ PROCESS = {
     "threshold":Threshold,
     "video":VideoLogger,
     "blur":Blur,
+    "light":Light,
 }
