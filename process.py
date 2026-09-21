@@ -185,17 +185,23 @@ class Circle(Process):
             minRadius=self.radius[0],
             maxRadius=self.radius[1],
         )
+        return circles
 
-        # Draw only the first detected circle
-        if circles is not None:
-            circles = np.uint16(np.around(circles))
-            for i in circles[0, :]:
-                # draw the outer circle
-                cv2.circle(output, (i[0], i[1]), i[2], (0, 255, 0), 2)
-                # draw the center of the circle
-                cv2.circle(output, (i[0], i[1]), 2, (0, 0, 255), 3)
+class PaintCircles(Process):
+    def __init__(self, center,border, **kwargs):
+        super().__init__()
+        self.center = center
+        self.border = border
 
-        return output
+    def process(self,frame,circles=[],**kwargs):
+        circles = np.uint16(np.around(circles))
+        for i in circles[0, :]:
+            # draw the outer circle
+            cv2.circle(frame, (i[0], i[1]), i[2], self.border, 2)
+            # draw the center of the circle
+            cv2.circle(frame, (i[0], i[1]), 0, self.center, 3)
+        return frame
+
 
 class Light(Process):
     def process(self,frame,mask=None,**kwargs):
@@ -221,4 +227,5 @@ PROCESS = {
     "video":VideoLogger,
     "blur":Blur,
     "light":Light,
+    "paint":PaintCircles,
 }
