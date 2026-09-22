@@ -52,7 +52,7 @@ class PipeLine(Process):
         data = {"original":frame}
         for process,inp,ret in self.pipeline:
             if inp is not None:
-                inp_dict = {n:data[d_n] for n,d_n in inp.items()}
+                inp_dict = {n:data.get(d_n) for n,d_n in inp.items()}
                 new_frame = process.process(**inp_dict,**kwargs)
             else:
                 new_frame = process.process(frame,**kwargs)
@@ -185,7 +185,7 @@ class Circle(Process):
             minRadius=self.radius[0],
             maxRadius=self.radius[1],
         )
-        return circles
+        return circles[0,:]
 
 class PaintCircles(Process):
     def __init__(self, center,border, **kwargs):
@@ -195,18 +195,48 @@ class PaintCircles(Process):
 
     def process(self,frame,circles=[],**kwargs):
         circles = np.uint16(np.around(circles))
-        for i in circles[0, :]:
+        for i in circles:
             # draw the outer circle
             cv2.circle(frame, (i[0], i[1]), i[2], self.border, 2)
             # draw the center of the circle
             cv2.circle(frame, (i[0], i[1]), 0, self.center, 3)
         return frame
 
+class Connect(Process):
+    def __init__(self, radius, **kwargs):
+        self.radius_sqr = radius**2
+        self.circles = []
+
+    def process(self,frame,circles=[],**kwargs):
+        circles = np.int64(np.around(circles))
+        connections = []
+        for circle in circles:
+            for last_circle in self.circles:
+                d = (last_circle-circle)[0:2]
+                d = np.sum(d**2)
+                if d > self.radius_sqr:
+                    continue
+                connections.append( np.array([last_circle, circle]))
+                #cv2.line(frame,last_circle[0:2],circle[0:2],(255,0,0),2)
+        self.circles = circles
+        return connections
+
+class PaintLine(Process):
+
+    def __init__(self, color, **kwargs):
+        super().__init__()
+        self.color = color
+
+    def process(self, frame, connection=[], **kwargs):
+        connection = np.uint16(np.around(connection))
+        for con in connection:
+            cv2.line(frame, con[0,0:2], con[1,0:2], self.color, 2)
+        return frame
+
 
 class Light(Process):
     def process(self,frame,mask=None,**kwargs):
         l = cv2.cvtColor(frame, cv2.COLOR_BGR2HLS)[:,:,1].astype(np.uint16)
-        print(l.max(),mask.max())
         if mask is not None:
             return (l*mask//256).astype(np.uint8)
         else:
@@ -227,5 +257,7 @@ PROCESS = {
     "video":VideoLogger,
     "blur":Blur,
     "light":Light,
-    "paint":PaintCircles,
+    "paint circle":PaintCircles,
+    "paint line":PaintLine,
+    "connect":Connect,
 }
