@@ -21,15 +21,14 @@ config = yaml.safe_load(open('config.yaml'))
 db = sqlite3.connect(config['db'])
 
 
-op = process.PROCESS[from_config(config,"operator")](**config["options"],processes=process.PROCESS)
+op = process.PipeLine(pipeline=config["pipeline"],processes=process.PROCESS)
 
 count = 0
 for frame in player.read_from_database(db,config['video'],8,config["start"],config["end"]):
     if count % 100 == 0:
         print(count)
     count += 1
-    original = frame.copy()
-    op.process(frame,original=original)
+    op.process(frame)
 
 op.finalize()
 cv2.destroyAllWindows()
