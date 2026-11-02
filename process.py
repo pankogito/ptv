@@ -42,10 +42,14 @@ class ForeGround(Process):
         return np.concatenate((frame,mask),axis=-1)
 
 class PipeLine(Process):
-    def __init__(self,**kwargs):
-        self.pipeline = list(map(lambda config:self.prepare(config,kwargs["processes"]),kwargs["pipeline"]))
+    def __init__(self,pipeline,processes,skip =0 ,**kwargs):
+        self.pipeline = map(lambda config:self.prepare(config,processes,skip),pipeline)
 
-    def prepare(self,config,processes):
+        self.pipeline = list(filter(lambda x: x is not None,self.pipeline))
+
+    def prepare(self,config,processes,skip):
+        if skip  & config.get("skip",0):
+            return None
         return processes[config["operator"]](**config.get("options",{})),config.get("input"),config.get("return")
 
     def process(self,frame,**kwargs):
