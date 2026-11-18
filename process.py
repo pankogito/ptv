@@ -1,3 +1,4 @@
+import csv
 from multiprocessing.spawn import prepare
 
 import cv2
@@ -18,6 +19,7 @@ class AvgProcess(Process):
     def __init__(self,**kwargs):
         self.avg = None
         self.count = 0
+
 
     def process(self,frame,**kwargs):
         if self.avg is None:
@@ -42,10 +44,14 @@ class ForeGround(Process):
         return np.concatenate((frame,mask),axis=-1)
 
 class PipeLine(Process):
-    def __init__(self,**kwargs):
-        self.pipeline = list(map(lambda config:self.prepare(config,kwargs["processes"]),kwargs["pipeline"]))
+    def __init__(self,pipeline,processes,skip =0 ,**kwargs):
+        self.pipeline = map(lambda config:self.prepare(config,processes,skip),pipeline)
 
-    def prepare(self,config,processes):
+        self.pipeline = list(filter(lambda x: x is not None,self.pipeline))
+
+    def prepare(self,config,processes,skip):
+        if skip  & config.get("skip",0):
+            return None
         return processes[config["operator"]](**config.get("options",{})),config.get("input"),config.get("return")
 
     def process(self,frame,**kwargs):
@@ -137,7 +143,7 @@ class HueSaturation(Process):
 
 
     def process(self,frame,**kwargs):
-        hls = cv2.cvtColor(frame,cv2.COLOR_BGR2HLS).astype(np.float16)
+        hls = cv2.cvtColor(frame,cv2.COLOR_BGR2HLS)
 
         hue_distance = (1/180)*np.minimum(np.abs(hls[:,:,0]-self.hue),180-np.abs(hls[:,:,0]-self.hue))
         return hls[:,:,2]*np.maximum(0,1 -self.multi*hue_distance)
@@ -169,7 +175,7 @@ class Circle(Process):
         self.distance = distance
 
     def process(self,frame,original = None,**kwargs):
-        frame = frame.astype(np.uint8)
+        frame = frame.astype(np.uint8,copy=False)
         if original is not None:
             output = original.copy()
         else:
@@ -185,7 +191,15 @@ class Circle(Process):
             minRadius=self.radius[0],
             maxRadius=self.radius[1],
         )
-        return circles[0,:]
+        if circles is not None:
+            return circles[0,:]
+        return []
+
+class FilterCircle(Process):
+    def process(self,frame,circles=[],**kwargs):
+        data = filter(lambda c: frame[int(c[1]),int(c[0])] == 255,circles)
+
+        return np.array(list(data))
 
 class PaintCircles(Process):
     def __init__(self, center,border, **kwargs):
@@ -194,7 +208,7 @@ class PaintCircles(Process):
         self.border = border
 
     def process(self,frame,circles=[],**kwargs):
-        circles = np.uint16(np.around(circles))
+        circles = np.around(circles).astype(np.uint16,copy=False)
         for i in circles:
             # draw the outer circle
             cv2.circle(frame, (i[0], i[1]), i[2], self.border, 2)
@@ -208,7 +222,6 @@ class Connect(Process):
         self.circles = []
 
     def process(self,frame,circles=[],**kwargs):
-        circles = np.int64(np.around(circles))
         connections = []
         for circle in circles:
             for last_circle in self.circles:
@@ -242,6 +255,22 @@ class Light(Process):
         else:
             return l.astype(np.uint8)
 
+class LocalMax(Process):
+    def process(self,frame,**kwargs):
+        maxi = cv2.dilate(frame,np.ones((12,12)))
+
+        print(maxi.max(),maxi.min())
+
+        return np.where(maxi==frame,frame,0)
+
+class Erode(Process):
+    def __init__(self,size):
+        self.kernel = np.ones((size,size),np.uint8)
+    def process(self,frame,**kwargs):
+        return cv2.erode(frame,self.kernel,iterations=1)
+
+
+
 PROCESS = {
     "none":Process,
     "avg":AvgProcess,
@@ -260,4 +289,7 @@ PROCESS = {
     "paint circle":PaintCircles,
     "paint line":PaintLine,
     "connect":Connect,
+    "local max":LocalMax,
+    "filter":FilterCircle,
+    "erode":Erode,
 }
